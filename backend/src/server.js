@@ -1,13 +1,13 @@
 import app from './app.js';
-import { connectDB } from './config/db.js';  // ✅ Changed to named import
-import { env } from './config/env.js';       // ✅ Changed to named import
-import { logger } from './utils/logger.js';  // ✅ Changed to named import
+import { connectDB } from './config/db.js';
+import { env } from './config/env.js';
+import { logger } from './utils/logger.js';
 
 // Connect to database
 connectDB();
 
-const server = app.listen(env.port, () => {  // ✅ Changed to env.port
-  logger.info(`Server running in ${env.env} mode on port ${env.port}`);  // ✅ Changed to env.env
+const server = app.listen(env.port, () => {
+  logger.info(`Server running in ${env.env} mode on port ${env.port}`);
 });
 
 // Handle unhandled promise rejections
