@@ -139,6 +139,27 @@ class QRService {
   }
 
   /**
+   * Delete QR code by ID
+   * @param {string} id - QR code ID
+   * @returns {Promise<void>}
+   */
+  async deleteQRCode(id) {
+    try {
+      const qrCode = await QRCode.findById(id);
+      if (!qrCode) {
+        throw new Error('QR code not found');
+      }
+
+      await qrCode.deleteOne();
+      
+      logger.info(`QR code deleted successfully: ${id}`);
+    } catch (error) {
+      logger.error('Delete QR code error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get all QR codes with pagination
    * @param {Object} options - Pagination and filter options
    * @returns {Promise<Object>} Paginated QR codes

@@ -16,6 +16,11 @@ export const qrService = {
     return response
   },
 
+  deleteQRCode: async (id) => {
+    const response = await api.delete(`/api/qr/${id}`)
+    return response
+  },
+
   healthCheck: async () => {
     const response = await api.get('/api/qr/health')
     return response

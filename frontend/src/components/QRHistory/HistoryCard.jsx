@@ -1,4 +1,9 @@
+import { useQRStore } from '../../store/useQRStore'
+import DeleteButton from './DeleteButton'
+
 const HistoryCard = ({ qr }) => {
+  const deleteQRCode = useQRStore((state) => state.deleteQRCode)
+
   const handleImageError = (e) => {
     console.error('Image failed to load for QR:', qr.id)
     console.log('Image URL that failed:', qr.imageUrl?.substring(0, 100))
@@ -18,7 +23,7 @@ const HistoryCard = ({ qr }) => {
   }
 
   return (
-    <div className="card p-4 border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+    <div className="card p-4 border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow flex flex-col">
       {/* QR Image */}
       <div className="bg-gray-50 rounded-lg p-4 mb-4 flex justify-center items-center min-h-[200px]">
         {qr.imageUrl ? (
@@ -40,7 +45,7 @@ const HistoryCard = ({ qr }) => {
       </div>
 
       {/* QR Details */}
-      <div className="space-y-3">
+      <div className="space-y-3 grow">
         <div>
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
             Type
@@ -78,6 +83,14 @@ const HistoryCard = ({ qr }) => {
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Delete Button - Now at the bottom */}
+      <div className="mt-4 pt-4 border-t border-gray-100">
+        <DeleteButton 
+          onDelete={deleteQRCode} 
+          qrId={qr.id}
+        />
       </div>
     </div>
   )

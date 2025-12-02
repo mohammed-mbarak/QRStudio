@@ -64,6 +64,22 @@ const getQRCodes = asyncHandler(async (req, res) => {
 });
 
 /**
+ * @desc    Delete a QR code by ID
+ * @route   DELETE /api/qr/:id
+ * @access  Public
+ */
+const deleteQRCode = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  await qrService.deleteQRCode(id);
+
+  res.status(200).json({
+    success: true,
+    message: 'QR code deleted successfully'
+  });
+});
+
+/**
  * @desc    Health check endpoint
  * @route   GET /api/qr/health
  * @access  Public
@@ -80,5 +96,6 @@ export {
   generateQR,
   getQRCode,
   getQRCodes,
+  deleteQRCode,
   healthCheck
 };
