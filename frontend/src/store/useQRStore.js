@@ -1,21 +1,36 @@
 import { create } from "zustand";
 import { qrService } from "../services/qrService";
 
-export const useQRStore = create((set) => ({
+export const useQRStore = create((set, get) => ({
   currentQR: null,
   qrHistory: [],
   isLoading: false,
   error: null,
-  toast: null, // Toast state
+  toast: null,
+
+  // Utility: ensure loader stays visible long enough
+  withMinimumLoading: async (promise, minTime = 600) => {
+    const start = Date.now();
+    const result = await promise;
+    const elapsed = Date.now() - start;
+
+    if (elapsed < minTime) {
+      await new Promise((res) => setTimeout(res, minTime - elapsed));
+    }
+    return result;
+  },
 
   // -------------------------------------------------------
-  // Generate QR
+  // Generate QR Code
   // -------------------------------------------------------
   generateQR: async (qrData) => {
     set({ isLoading: true, error: null });
 
     try {
-      const response = await qrService.generateQR(qrData);
+      const response = await get().withMinimumLoading(
+        qrService.generateQR(qrData)
+      );
+
       const qr = response.data?.data;
 
       const newQR = {
@@ -48,19 +63,21 @@ export const useQRStore = create((set) => ({
       });
 
       setTimeout(() => set({ toast: null }), 5000);
-
       throw error;
     }
   },
 
   // -------------------------------------------------------
-  // Get QR History
+  // Get QR History (Retry for Render cold starts)
   // -------------------------------------------------------
-  getQRHistory: async () => {
-    set({ isLoading: true });
+  getQRHistory: async (retry = false) => {
+    set({ isLoading: true, error: null });
 
     try {
-      const response = await qrService.getQRCodes();
+      const response = await get().withMinimumLoading(
+        qrService.getQRCodes()
+      );
+
       const list = response.data?.data?.qrCodes || [];
 
       const history = list.map((qr) => ({
@@ -77,6 +94,15 @@ export const useQRStore = create((set) => ({
         isLoading: false,
       });
     } catch (error) {
+      if (!retry) {
+        // Retry once after cold start
+        set({ isLoading: true });
+        setTimeout(() => {
+          get().getQRHistory(true);
+        }, 2000);
+        return;
+      }
+
       const message =
         error.response?.data?.message || "Failed to fetch QR history";
 
@@ -92,16 +118,19 @@ export const useQRStore = create((set) => ({
   },
 
   // -------------------------------------------------------
-  // Get Single QR
+  // Get a Single QR Code
   // -------------------------------------------------------
   getQRCode: async (id) => {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
 
     try {
-      const response = await qrService.getQRCode(id);
+      const response = await get().withMinimumLoading(
+        qrService.getQRCode(id)
+      );
+
       const qr = response.data?.data;
 
-      const formattedQR = {
+      const formatted = {
         id: qr._id,
         imageUrl: qr.qrCodeImage,
         content: qr.data,
@@ -111,7 +140,7 @@ export const useQRStore = create((set) => ({
       };
 
       set({
-        currentQR: formattedQR,
+        currentQR: formatted,
         isLoading: false,
       });
     } catch (error) {
@@ -125,25 +154,26 @@ export const useQRStore = create((set) => ({
       });
 
       setTimeout(() => set({ toast: null }), 5000);
-
       throw error;
     }
   },
 
   // -------------------------------------------------------
-  // Delete QR
+  // Delete QR Code
   // -------------------------------------------------------
   deleteQRCode: async (id) => {
     try {
-      const response = await qrService.deleteQRCode(id);
+      const response = await get().withMinimumLoading(
+        qrService.deleteQRCode(id)
+      );
 
-      if (!response.data.success) {
-        throw new Error(response.data.message || "Failed to delete QR code");
+      if (!response.data?.success) {
+        throw new Error("Failed to delete QR code");
       }
 
       set((state) => ({
         qrHistory: state.qrHistory.filter((qr) => qr.id !== id),
-        toast: { message: "QR code deleted successfully", type: "success" },
+        toast: { message: "QR Code deleted successfully", type: "success" },
       }));
 
       setTimeout(() => set({ toast: null }), 3000);
@@ -166,7 +196,7 @@ export const useQRStore = create((set) => ({
   },
 
   // -------------------------------------------------------
-  // Utility
+  // Utilities
   // -------------------------------------------------------
   clearError: () => set({ error: null }),
   clearCurrentQR: () => set({ currentQR: null }),
