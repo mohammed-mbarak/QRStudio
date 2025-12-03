@@ -7,6 +7,20 @@ export const useQRStore = create((set, get) => ({
   isLoading: false,
   error: null,
   toast: null,
+  serverReady: false, // NEW: track if backend is awake
+
+  // -------------------------------------------------------
+  // Wake backend (Render cold start handling)
+  // -------------------------------------------------------
+  wakeServer: async () => {
+    try {
+      await qrService.healthCheck();
+      set({ serverReady: true });
+      return true;
+      } catch {
+      return false;
+    }
+  },
 
   // -------------------------------------------------------
   // Generate QR Code
@@ -31,33 +45,45 @@ export const useQRStore = create((set, get) => ({
         currentQR: newQR,
         qrHistory: [newQR, ...state.qrHistory],
         isLoading: false,
-        toast: { message: "QR code generated successfully!", type: "success" },
+        toast: { message: "QR generated!", type: "success" },
       }));
 
       setTimeout(() => set({ toast: null }), 3000);
 
       return newQR;
     } catch (error) {
-      const message =
+      const msg =
         error.response?.data?.message || "Failed to generate QR code";
 
       set({
         isLoading: false,
-        error: message,
-        toast: { message, type: "error" },
+        error: msg,
+        toast: { message: msg, type: "error" }
       });
 
       setTimeout(() => set({ toast: null }), 5000);
-
       throw error;
     }
   },
 
   // -------------------------------------------------------
-  // Get QR History (with retry for Render cold start)
+  // Load QR History (robust retry)
   // -------------------------------------------------------
-  getQRHistory: async (retry = false) => {
+  getQRHistory: async () => {
     set({ isLoading: true, error: null });
+
+    // 🔥 Make sure backend is awake first
+    if (!get().serverReady) {
+      let attempts = 0;
+
+      while (attempts < 5) {
+        const awake = await get().wakeServer();
+        if (awake) break;
+
+        attempts++;
+        await new Promise((res) => setTimeout(res, 2000)); // wait 2 sec before retry
+      }
+    }
 
     try {
       const response = await qrService.getQRCodes();
@@ -75,25 +101,17 @@ export const useQRStore = create((set, get) => ({
       set({
         qrHistory: history,
         isLoading: false,
+        serverReady: true,
       });
     } catch (error) {
-      // On Render cold-start, retry automatically once after 2 seconds
-      if (!retry) {
-        set({ isLoading: true });
-        setTimeout(() => {
-          get().getQRHistory(true);
-        }, 2000);
-        return;
-      }
-
-      const message =
+      const msg =
         error.response?.data?.message || "Failed to fetch QR history";
 
       set({
         isLoading: false,
         qrHistory: [],
-        error: message,
-        toast: { message, type: "error" },
+        error: msg,
+        toast: { message: msg, type: "error" }
       });
 
       setTimeout(() => set({ toast: null }), 5000);
@@ -101,7 +119,7 @@ export const useQRStore = create((set, get) => ({
   },
 
   // -------------------------------------------------------
-  // Get a Single QR Code
+  // Get Single QR Code
   // -------------------------------------------------------
   getQRCode: async (id) => {
     set({ isLoading: true, error: null });
@@ -119,18 +137,15 @@ export const useQRStore = create((set, get) => ({
         createdAt: qr.generatedAt,
       };
 
-      set({
-        currentQR: formatted,
-        isLoading: false,
-      });
+      set({ currentQR: formatted, isLoading: false });
     } catch (error) {
-      const message =
-        error.response?.data?.message || "Failed to fetch QR code";
+      const msg =
+        error.response?.data?.message || "Failed to load QR code";
 
       set({
         isLoading: false,
-        error: message,
-        toast: { message, type: "error" },
+        error: msg,
+        toast: { message: msg, type: "error" }
       });
 
       setTimeout(() => set({ toast: null }), 5000);
@@ -151,21 +166,19 @@ export const useQRStore = create((set, get) => ({
 
       set((state) => ({
         qrHistory: state.qrHistory.filter((qr) => qr.id !== id),
-        toast: { message: "QR Code deleted successfully", type: "success" },
+        toast: { message: "Deleted successfully", type: "success" }
       }));
 
       setTimeout(() => set({ toast: null }), 3000);
 
       return { success: true };
     } catch (error) {
-      const message =
+      const msg =
         error.response?.data?.message ||
         error.message ||
         "Failed to delete QR code";
 
-      set({
-        toast: { message, type: "error" },
-      });
+      set({ toast: { message: msg, type: "error" } });
 
       setTimeout(() => set({ toast: null }), 5000);
 
@@ -179,4 +192,5 @@ export const useQRStore = create((set, get) => ({
   clearError: () => set({ error: null }),
   clearCurrentQR: () => set({ currentQR: null }),
   clearToast: () => set({ toast: null }),
+
 }));
